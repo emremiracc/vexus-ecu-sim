@@ -1,0 +1,13 @@
+{
+  "name": "vexus",
+  "version": "1.0.0",
+  "description": "Vehicle EXecution & Understanding System — ECU sensor simulator",
+  "main": "backend/server.js",
+  "scripts": {
+    "start": "node backend/server.js",
+    "dev": "node --watch backend/server.js"
+  },
+  "dependencies": {
+    "ws": "^8.16.0"
+  }
+}

@@ -1,0 +1,558 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>VEXUS ECU Dashboard</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600;700&family=Share+Tech+Mono&display=swap');
+
+    :root {
+      --bg: #0d0d0d;
+      --surface: #161616;
+      --surface-2: #1b1b1b;
+      --border: #2a2a2a;
+      --text: #f2f2f2;
+      --muted: #8c8c8c;
+      --blue: #378add;
+      --green: #1d9e75;
+      --amber: #ef9f27;
+      --red: #e24b4a;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      background:
+        radial-gradient(circle at top right, rgba(55, 138, 221, 0.12), transparent 30%),
+        radial-gradient(circle at bottom left, rgba(226, 75, 74, 0.08), transparent 28%),
+        linear-gradient(180deg, #111 0%, var(--bg) 100%);
+      color: var(--text);
+      font-family: 'Barlow', sans-serif;
+    }
+
+    .shell {
+      width: min(1180px, calc(100vw - 32px));
+      margin: 24px auto;
+      padding: 22px;
+      border: 1px solid var(--border);
+      background: rgba(13, 13, 13, 0.94);
+      box-shadow: 0 24px 60px rgba(0, 0, 0, 0.35);
+    }
+
+    .topbar,
+    .condition-row,
+    .ws-line {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+    }
+
+    .topbar {
+      margin-bottom: 18px;
+      padding-bottom: 14px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .mono {
+      font-family: 'Share Tech Mono', monospace;
+    }
+
+    .eyebrow {
+      color: var(--muted);
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      font-size: 0.85rem;
+    }
+
+    .status-badge {
+      padding: 8px 14px;
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      font-size: 0.9rem;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      background: var(--surface);
+    }
+
+    .status-badge.HEALTHY {
+      color: var(--green);
+      border-color: rgba(29, 158, 117, 0.45);
+    }
+
+    .status-badge.WARNING {
+      color: var(--amber);
+      border-color: rgba(239, 159, 39, 0.45);
+    }
+
+    .status-badge.CRITICAL {
+      color: var(--red);
+      border-color: rgba(226, 75, 74, 0.45);
+    }
+
+    .cards {
+      display: grid;
+      grid-template-columns: repeat(5, minmax(0, 1fr));
+      gap: 14px;
+      margin-bottom: 18px;
+    }
+
+    .card,
+    .panel {
+      border: 1px solid var(--border);
+      background: linear-gradient(180deg, var(--surface-2) 0%, var(--surface) 100%);
+    }
+
+    .card {
+      padding: 16px;
+      min-height: 168px;
+    }
+
+    .label {
+      color: var(--muted);
+      font-size: 0.82rem;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+    }
+
+    .value-row {
+      display: flex;
+      align-items: baseline;
+      gap: 10px;
+      margin-top: 18px;
+      margin-bottom: 24px;
+    }
+
+    .value {
+      font-family: 'Share Tech Mono', monospace;
+      font-size: clamp(2rem, 3vw, 2.8rem);
+      line-height: 1;
+    }
+
+    .unit {
+      color: var(--muted);
+      font-size: 0.92rem;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+    }
+
+    .progress-track {
+      height: 8px;
+      width: 100%;
+      border-radius: 999px;
+      overflow: hidden;
+      background: #101010;
+      border: 1px solid #242424;
+    }
+
+    .progress-fill {
+      height: 100%;
+      width: 0;
+      background: var(--blue);
+      transition: width 0.25s ease, background-color 0.25s ease;
+    }
+
+    .chart-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 14px;
+      margin-bottom: 18px;
+    }
+
+    .panel {
+      padding: 16px 18px;
+    }
+
+    .panel-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 10px;
+    }
+
+    .chart-wrap {
+      height: 120px;
+    }
+
+    .modes {
+      display: grid;
+      grid-template-columns: repeat(5, minmax(0, 1fr));
+      gap: 10px;
+      margin-bottom: 18px;
+    }
+
+    .mode-btn {
+      border: 1px solid var(--border);
+      background: #121212;
+      color: var(--text);
+      padding: 12px 10px;
+      font: 600 0.95rem 'Barlow', sans-serif;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      cursor: pointer;
+      transition: transform 0.18s ease, border-color 0.18s ease, background 0.18s ease;
+    }
+
+    .mode-btn:hover {
+      transform: translateY(-1px);
+      border-color: #3a3a3a;
+    }
+
+    .mode-btn.active {
+      background: rgba(55, 138, 221, 0.18);
+      border-color: rgba(55, 138, 221, 0.75);
+      color: #9ec8f2;
+    }
+
+    .mode-btn.active[data-mode="redline"] {
+      background: rgba(226, 75, 74, 0.16);
+      border-color: rgba(226, 75, 74, 0.8);
+      color: #ffb3b1;
+    }
+
+    .condition-row,
+    .ws-line {
+      padding: 14px 16px;
+      border: 1px solid var(--border);
+      background: var(--surface);
+      font-family: 'Share Tech Mono', monospace;
+    }
+
+    .condition-row {
+      margin-bottom: 12px;
+    }
+
+    .condition-code {
+      color: var(--muted);
+      min-width: 100px;
+    }
+
+    .ws-line.connected {
+      color: var(--green);
+    }
+
+    .ws-line.disconnected {
+      color: var(--red);
+    }
+
+    @media (max-width: 1024px) {
+      .cards {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+
+      .cards .card:last-child {
+        grid-column: span 2;
+      }
+    }
+
+    @media (max-width: 720px) {
+      .shell {
+        width: min(100vw - 16px, 1180px);
+        margin: 8px auto;
+        padding: 14px;
+      }
+
+      .topbar,
+      .condition-row {
+        flex-direction: column;
+        align-items: flex-start;
+      }
+
+      .cards,
+      .chart-grid,
+      .modes {
+        grid-template-columns: 1fr;
+      }
+
+      .cards .card:last-child {
+        grid-column: auto;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main class="shell">
+    <div class="topbar">
+      <div class="eyebrow mono">ECU_SIM / VEXUS v1.0</div>
+      <div id="statusBadge" class="status-badge HEALTHY">HEALTHY</div>
+    </div>
+
+    <section class="cards">
+      <article class="card">
+        <div class="label">Engine RPM</div>
+        <div class="value-row">
+          <div id="rpmValue" class="value" style="color: var(--blue);">800</div>
+          <div class="unit">rev/min</div>
+        </div>
+        <div class="progress-track"><div id="rpmBar" class="progress-fill"></div></div>
+      </article>
+
+      <article class="card">
+        <div class="label">Vehicle Speed</div>
+        <div class="value-row">
+          <div id="speedValue" class="value" style="color: var(--green);">0</div>
+          <div class="unit">km/h</div>
+        </div>
+        <div class="progress-track"><div id="speedBar" class="progress-fill" style="background: var(--green);"></div></div>
+      </article>
+
+      <article class="card">
+        <div class="label">Coolant Temp</div>
+        <div class="value-row">
+          <div id="tempValue" class="value" style="color: var(--green);">60.0</div>
+          <div class="unit">°C</div>
+        </div>
+        <div class="progress-track"><div id="tempBar" class="progress-fill" style="background: var(--green);"></div></div>
+      </article>
+
+      <article class="card">
+        <div class="label">Throttle Pos</div>
+        <div class="value-row">
+          <div id="throttleValue" class="value" style="color: var(--amber);">0</div>
+          <div class="unit">% open</div>
+        </div>
+        <div class="progress-track"><div id="throttleBar" class="progress-fill" style="background: var(--amber);"></div></div>
+      </article>
+
+      <article class="card">
+        <div class="label">Current Gear</div>
+        <div class="value-row">
+          <div id="gearValue" class="value">1</div>
+          <div class="unit">derived</div>
+        </div>
+        <div class="progress-track"><div id="gearBar" class="progress-fill" style="background: #8b8b8b;"></div></div>
+      </article>
+    </section>
+
+    <section class="chart-grid">
+      <article class="panel">
+        <div class="panel-header">
+          <div class="label">RPM History</div>
+        </div>
+        <div class="chart-wrap"><canvas id="rpmChart"></canvas></div>
+      </article>
+
+      <article class="panel">
+        <div class="panel-header">
+          <div class="label">Temperature History</div>
+        </div>
+        <div class="chart-wrap"><canvas id="tempChart"></canvas></div>
+      </article>
+    </section>
+
+    <section class="modes">
+      <button class="mode-btn active" data-mode="idle">Idle</button>
+      <button class="mode-btn" data-mode="accelerate">Accelerate</button>
+      <button class="mode-btn" data-mode="cruise">Cruise</button>
+      <button class="mode-btn" data-mode="decelerate">Decelerate</button>
+      <button class="mode-btn" data-mode="redline">Redline</button>
+    </section>
+
+    <div class="condition-row">
+      <div id="conditionCode" class="condition-code">OK</div>
+      <div id="conditionMessage">All parameters nominal</div>
+    </div>
+
+    <div id="wsLine" class="ws-line disconnected">● DISCONNECTED — retrying in 3s...</div>
+  </main>
+
+  <script>
+    const WS_URL = 'ws://localhost:8080';
+    const MAX_HISTORY = 60;
+    const historyLabels = Array.from({ length: MAX_HISTORY }, (_, index) => index + 1);
+    const rpmHistory = [];
+    const tempHistory = [];
+
+    let ws = null;
+    let reconnectTimer = null;
+    let currentMode = 'idle';
+
+    const statusBadge = document.getElementById('statusBadge');
+    const conditionCode = document.getElementById('conditionCode');
+    const conditionMessage = document.getElementById('conditionMessage');
+    const wsLine = document.getElementById('wsLine');
+
+    const fields = {
+      rpmValue: document.getElementById('rpmValue'),
+      speedValue: document.getElementById('speedValue'),
+      tempValue: document.getElementById('tempValue'),
+      throttleValue: document.getElementById('throttleValue'),
+      gearValue: document.getElementById('gearValue'),
+      rpmBar: document.getElementById('rpmBar'),
+      speedBar: document.getElementById('speedBar'),
+      tempBar: document.getElementById('tempBar'),
+      throttleBar: document.getElementById('throttleBar'),
+      gearBar: document.getElementById('gearBar'),
+    };
+
+    function tempColor(t) {
+      if (t < 85) return '#1D9E75';
+      if (t < 100) return '#EF9F27';
+      return '#E24B4A';
+    }
+
+    function rpmColor(rpm) {
+      if (rpm < 4500) return '#378ADD';
+      if (rpm < 6000) return '#EF9F27';
+      return '#E24B4A';
+    }
+
+    function createChart(canvasId, borderColor, minY, maxY) {
+      return new Chart(document.getElementById(canvasId), {
+        type: 'line',
+        data: {
+          labels: historyLabels,
+          datasets: [{
+            data: Array(MAX_HISTORY).fill(null),
+            borderColor,
+            borderWidth: 2,
+            pointRadius: 0,
+            tension: 0.28,
+          }],
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          animation: false,
+          plugins: {
+            legend: { display: false },
+            tooltip: { enabled: false },
+          },
+          scales: {
+            x: {
+              grid: { color: 'rgba(255,255,255,0.04)' },
+              ticks: { display: false },
+              border: { color: 'rgba(255,255,255,0.08)' },
+            },
+            y: {
+              min: minY,
+              max: maxY,
+              grid: { color: 'rgba(255,255,255,0.06)' },
+              ticks: {
+                color: '#757575',
+                font: { family: 'Share Tech Mono', size: 10 },
+                maxTicksLimit: 4,
+              },
+              border: { color: 'rgba(255,255,255,0.08)' },
+            },
+          },
+        },
+      });
+    }
+
+    const rpmChart = createChart('rpmChart', '#378ADD', 0, 8000);
+    const tempChart = createChart('tempChart', '#1D9E75', 50, 120);
+
+    function pushHistory(store, value) {
+      store.push(value);
+      if (store.length > MAX_HISTORY) store.shift();
+      return Array(MAX_HISTORY - store.length).fill(null).concat(store);
+    }
+
+    function setActiveMode(mode) {
+      currentMode = mode;
+      document.querySelectorAll('.mode-btn').forEach((button) => {
+        button.classList.toggle('active', button.dataset.mode === mode);
+      });
+    }
+
+    function setSocketState(connected) {
+      if (connected) {
+        wsLine.textContent = '● CONNECTED — receiving sensor data';
+        wsLine.className = 'ws-line connected';
+        return;
+      }
+
+      wsLine.textContent = '● DISCONNECTED — retrying in 3s...';
+      wsLine.className = 'ws-line disconnected';
+    }
+
+    function updateDashboard(data) {
+      const rpmTone = rpmColor(data.rpm);
+      const tempTone = tempColor(data.temp);
+
+      fields.rpmValue.textContent = data.rpm;
+      fields.speedValue.textContent = data.speed;
+      fields.tempValue.textContent = data.temp.toFixed(1);
+      fields.throttleValue.textContent = data.throttle;
+      fields.gearValue.textContent = data.gear;
+
+      fields.rpmValue.style.color = rpmTone;
+      fields.tempValue.style.color = tempTone;
+
+      fields.rpmBar.style.width = `${Math.min(100, data.rpm / 80)}%`;
+      fields.rpmBar.style.background = rpmTone;
+      fields.speedBar.style.width = `${Math.min(100, data.speed / 2.5)}%`;
+      fields.tempBar.style.width = `${Math.min(100, ((data.temp - 50) / 70) * 100)}%`;
+      fields.tempBar.style.background = tempTone;
+      fields.throttleBar.style.width = `${data.throttle}%`;
+      fields.gearBar.style.width = `${(data.gear / 6) * 100}%`;
+
+      rpmChart.data.datasets[0].data = pushHistory(rpmHistory, data.rpm);
+      rpmChart.data.datasets[0].borderColor = rpmTone;
+      rpmChart.update();
+
+      tempChart.data.datasets[0].data = pushHistory(tempHistory, data.temp);
+      tempChart.data.datasets[0].borderColor = tempTone;
+      tempChart.update();
+
+      statusBadge.textContent = data.condition.status;
+      statusBadge.className = `status-badge ${data.condition.status}`;
+
+      conditionCode.textContent = data.condition.code || 'OK';
+      conditionMessage.textContent = data.condition.message;
+
+      setActiveMode(data.mode);
+    }
+
+    function sendMode(mode) {
+      setActiveMode(mode);
+
+      if (ws && ws.readyState === WebSocket.OPEN) {
+        ws.send(JSON.stringify({ type: 'SET_MODE', mode }));
+      }
+    }
+
+    function connect() {
+      if (reconnectTimer) {
+        clearTimeout(reconnectTimer);
+        reconnectTimer = null;
+      }
+
+      ws = new WebSocket(WS_URL);
+
+      ws.onopen = () => {
+        setSocketState(true);
+        sendMode(currentMode);
+      };
+
+      ws.onmessage = (event) => {
+        const data = JSON.parse(event.data);
+        updateDashboard(data);
+      };
+
+      ws.onclose = () => {
+        setSocketState(false);
+        reconnectTimer = setTimeout(connect, 3000);
+      };
+
+      ws.onerror = () => {
+        ws.close();
+      };
+    }
+
+    document.querySelectorAll('.mode-btn').forEach((button) => {
+      button.addEventListener('click', () => sendMode(button.dataset.mode));
+    });
+
+    connect();
+  </script>
+</body>
+</html>
