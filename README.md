@@ -1,28 +1,15 @@
-# VEXUS
+# Vexus ECU Simulation Dashboard
 
-Vehicle EXecution & Understanding System is a beginner-friendly automotive software project that simulates a simple ECU data path:
-
-`Sensor -> Processing -> Output`
-
-## Stack
-
-- Backend: Node.js + `ws`
-- Frontend: Vanilla HTML/CSS/JS + Chart.js CDN
-- Transport: WebSocket on `ws://localhost:8080`
-
-## Run
-
-```bash
-npm install
-npm start
-```
-
-Then open [frontend/index.html](/Users/emremiraccakir/vexus/frontend/index.html) in a browser.
+A beginner-level automotive software project to simulate and visualize vehicle data in real-time.
 
 ## Features
 
-- Simulated vehicle plant model with driving modes
-- Realtime broadcast every 500 ms
-- OBD-II inspired engine condition evaluation
-- Live dashboard with sensor cards and history charts
-- Manual mode switching and auto-reconnect
+- Simulated vehicle data (RPM, Speed, Temperature, Throttle, Gear)
+- Driving modes (Idle, Accelerate, Cruise, Decelerate, Redline)
+- Engine health detection (Critical / Healthy)
+- Real-time dashboard UI
+
+## Purpose
+
+Built to understand how vehicle systems work before moving into ECU-level and embedded automotive software.
+
